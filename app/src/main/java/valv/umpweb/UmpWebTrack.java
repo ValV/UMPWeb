@@ -1,4 +1,4 @@
-package ValV.umpweb;
+package valv.umpweb;
 
 import android.content.Context;
 import android.util.TypedValue;
@@ -24,7 +24,7 @@ public class UmpWebTrack extends LinearLayout {
         TextView tvTrackInfo = new TextView(context);
         addView(btnTrackControl);
         addView(tvTrackInfo);
-        btnTrackControl.setText(" * ");
+        btnTrackControl.setText(" ▼ ");
         btnTrackControl.setTextSize(TypedValue.COMPLEX_UNIT_SP, 32);
         btnTrackControl.setOnClickListener(new OnClickListener() {
             @Override
@@ -40,18 +40,18 @@ public class UmpWebTrack extends LinearLayout {
                     else uwtTrack.setLoaded(false);
                     if ((uwtTrack.getChildAt(0) != view)) {
                         if (uwtTrack.getPlaying()) {
-                            // Stop playback
+                            // Stop playback any other Track
                             uwtTrack.setPlaying(false);
                             ((MainPlayerActivity) getContext()).umpStop();
                         }
                     } else {
                         // For the same button
                         if (uwtTrack.getPlaying()) {
-                            // TODO Stub: Stop playing
+                            // Stop playing current Track
                             uwtTrack.setPlaying(false);
                             ((MainPlayerActivity) getContext()).umpStop();
                         } else {
-                            // TODO Stub: Start playing playFile(uwtTrack.getTrackName())
+                            // Start playing current Track
                             ((Button) view).setText(" ▪ ");
                             uwtTrack.setPlaying(true);
                             ((MainPlayerActivity) getContext()).umpPlay(uwtTrack.getTrackName());
@@ -100,7 +100,7 @@ public class UmpWebTrack extends LinearLayout {
         this.mp3Loaded = isMp3Loaded;
         Button btnTrackControl = (Button) this.getChildAt(0);
         if (isMp3Loaded) btnTrackControl.setText(" ▶ ");
-        else btnTrackControl.setText(" * ");
+        else btnTrackControl.setText(" ▼ ");
     }
 
     public boolean getLoaded() {

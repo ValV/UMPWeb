@@ -1,10 +1,18 @@
-package ValV.umpweb;
+package valv.umpweb;
 
+import android.app.Activity;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.v7.app.ActionBarActivity;
+import android.os.Handler;
+import android.os.ResultReceiver;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,14 +27,40 @@ import java.io.IOException;
 import java.io.LineNumberReader;
 
 
-public class MainPlayerActivity extends ActionBarActivity {
+public class MainPlayerActivity extends Activity {
+    /* TODO: Legacy download method (remove)
+    private class DownloadReceiver extends ResultReceiver {
+        DownloadReceiver(Handler handler) {
+            super(handler);
+        }
+        @Override
+        protected void onReceiveResult(int rsltCode, Bundle rsltData) {
+            super.onReceiveResult(rsltCode, rsltData);
+            if (rsltCode == DownloadService.UPDATE_PROGRESS) {
+                int iDlProgress = rsltData.getInt(DownloadService.DOWNLOAD_PROGRESS);
+                if (dlTrack >= 0) {
+                    // Set Progress in the Track Title (todo)
+                    UmpWebTrack uwtTrack = (UmpWebTrack) llvTrackList.getChildAt(dlTrack);
+                    if (uwtTrack != null) {
+                        ((Button) uwtTrack.getChildAt(0)).setText(uwtTrack.getTrackName() + " ("
+                                + String.valueOf(iDlProgress) + ")");
+                    }
+                }
+            }
+        }
+    }*/
 
     private final String PLAYLIST_URL =
             "https://www.dropbox.com/s/ivsw18bo669erwc/UMPWeb.list?dl=0";
+    private final String PLAYLIST_NAME = "UMPWeb.list";
     private File SOURCE_DIR;
+    //private int dlTrack = -1;
     private Button btnFetchPlaylist;
     private LinearLayout llvTrackList;
     private TextView tvStatusMessage;
+
+    private DownloadManager dmUfmDownloader = null;
+    private long lLastDl = -1L;
 
     protected MediaPlayer umpMediaPlayer;
 
@@ -34,6 +68,11 @@ public class MainPlayerActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_player);
+        dmUfmDownloader = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        registerReceiver(onComplete,
+                new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+        registerReceiver(onNotificationClick,
+                new IntentFilter(DownloadManager.ACTION_NOTIFICATION_CLICKED));
         SOURCE_DIR = Environment
                 .getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC + "/UMPWeb");
         btnFetchPlaylist = (Button) findViewById(R.id.btnFetchPlaylist);
@@ -84,6 +123,10 @@ public class MainPlayerActivity extends ActionBarActivity {
     protected void onDestroy() {
         // Release MediaPlayer resources on Activity destruction
         if (umpMediaPlayer.isPlaying()) umpMediaPlayer.stop();
+
+        unregisterReceiver(onComplete);
+        unregisterReceiver(onNotificationClick);
+
         umpMediaPlayer.release();
         super.onDestroy();
     }
@@ -92,10 +135,7 @@ public class MainPlayerActivity extends ActionBarActivity {
         // Check External Storage availability (read-write or read-only)
         String exState = Environment.getExternalStorageState();
         return (Environment.MEDIA_MOUNTED.equals(exState)
-                || (Environment.MEDIA_MOUNTED_READ_ONLY.equals(exState) && isReadOnly)) /*{
-            return true;
-        }
-        return false*/;
+                || (Environment.MEDIA_MOUNTED_READ_ONLY.equals(exState) && isReadOnly));
     }
 
     protected boolean isExternalStorageAvailable() {
@@ -104,7 +144,6 @@ public class MainPlayerActivity extends ActionBarActivity {
     }
 
     protected void fetchPlaylist(boolean forceReload) {
-        forceReload = false; // TODO Stub (remove): No connection - only do read existing file
         if (!isExternalStorageAvailable(true) || (SOURCE_DIR == null)) {
             // If SD is not mounted at all - report
             if (SOURCE_DIR == null)
@@ -119,15 +158,17 @@ public class MainPlayerActivity extends ActionBarActivity {
                     tvStatusMessage.setText("Created: " + SOURCE_DIR.getAbsolutePath());
                 else tvStatusMessage.setText("Directory is Ok");
             }
-            // TODO Stub: Download PLAYLIST_URL as SOURCE_DIR.getAbsolutePath() + "/UMPWeb.list"
-            // TODO Stub: rebuildTrackList(SOURCE_DIR.getAbsolutePath() + "/UMPWeb.list");
+            // Download PLAYLIST_URL as SOURCE_DIR.getAbsolutePath() + "/" + PLAYLIST_NAME
+            fetchTrack(PLAYLIST_URL, /*SOURCE_DIR.getAbsolutePath() + "/" +*/PLAYLIST_NAME);
+            // TODO: File download queue (add)
+            // rebuildTrackList(SOURCE_DIR.getAbsolutePath() + "/UMPWeb.list");
         } else {
             // SD available read-only - read existing Playlist
             if (forceReload) tvStatusMessage.setText("SD is read-only. Reading Playlist...");
                 // Read Playlist in spite of how SD is mounted
             else tvStatusMessage.setText("Reading Playlist...");
             if (SOURCE_DIR.exists()) {
-                File fTrackList = new File(SOURCE_DIR.getAbsolutePath() + "/UMPWeb.list");
+                File fTrackList = new File(SOURCE_DIR.getAbsolutePath() + "/" + PLAYLIST_NAME);
                 if (fTrackList.exists()) {
                     tvStatusMessage.setText("Playlist does exist. Creating Track List...");
                     rebuildTrackList(fTrackList.getAbsolutePath());
@@ -161,7 +202,7 @@ public class MainPlayerActivity extends ActionBarActivity {
                     fetchTagsFiles();
                 }
             } else {
-                // This may be removed (not critical)
+                // This may be removed (not mandatory)
                 tvStatusMessage.setText("Playlist Path is NULL. Perform sample");
                 if (llvTrackList != null) {
                     llvTrackList.removeAllViews();
@@ -183,9 +224,26 @@ public class MainPlayerActivity extends ActionBarActivity {
         }
     }
 
-    public boolean fetchTrack(String url, String name) {
-        // TODO Stub: download url as name
-        return false;
+    public void fetchTrack(String urlAddress, String fileName) {
+        fetchTrack(urlAddress, fileName, -1);
+    }
+
+    public void fetchTrack(String urlAddress, String fileName, int trackIndex) {
+        /* TODO: Legacy download method (remove)
+        Intent intent = new Intent(this, DownloadService.class);
+        intent.putExtra(DownloadService.URL_ADDRESS, urlAddress);
+        intent.putExtra(DownloadService.FILE_NAME, filePath);
+        intent.putExtra(DownloadService.RESULT_RECEIVER, new DownloadReceiver(new Handler()));
+        startService(intent); */
+        // Enqueue with DownloadManager
+        Uri uriRemoteFile = Uri.parse(urlAddress);
+        lLastDl = dmUfmDownloader.enqueue(new DownloadManager.Request(uriRemoteFile)
+                .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_MOBILE
+                        | DownloadManager.Request.NETWORK_WIFI)
+                .setAllowedOverRoaming(false)
+                .setTitle(String.valueOf(trackIndex))
+                .setDescription("Track number in TrackList")
+                .setDestinationInExternalPublicDir(SOURCE_DIR.getAbsolutePath(), fileName));
     }
 
     private void fetchTagsFiles() {
@@ -214,8 +272,9 @@ public class MainPlayerActivity extends ActionBarActivity {
                     if (strTrackTitle.capacity() != 0) uwtTrack.setTitle(strTrackTitle.toString());
                     uwtTrack.setLoaded(true);
                 } else {
-                    // TODO Stub: Perform Web download
-                    fetchTrack(null, null);
+                    // TODO: Perform Web download (modify, add callbacks)
+                    uwtTrack.setLoaded(false);
+                    fetchTrack(uwtTrack.getTrackUrl(), uwtTrack.getTrackName(), i);
                 }
             }
         }
@@ -237,4 +296,19 @@ public class MainPlayerActivity extends ActionBarActivity {
         if (umpMediaPlayer.isPlaying()) umpMediaPlayer.stop();
         umpMediaPlayer.reset();
     }
+
+
+    BroadcastReceiver onComplete = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            // TODO: Notify that file retrieved (modify)
+            tvStatusMessage.setText("Download is complete!");
+        }
+    };
+
+    BroadcastReceiver onNotificationClick = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            // TODO: Display progress (modify)
+            tvStatusMessage.setText("Dl is in progress...");
+        }
+    };
 }

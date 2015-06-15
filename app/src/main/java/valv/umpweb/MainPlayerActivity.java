@@ -11,8 +11,6 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.ResultReceiver;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -150,7 +148,7 @@ public class MainPlayerActivity extends Activity {
                 tvStatusMessage.setText("SOURCE_DIR is NULL");
             else
                 tvStatusMessage.setText("SD Card is not available");
-            return;
+            //return;
         } else if (isExternalStorageAvailable() && forceReload) {
             // SD available read-write - download Playlist
             if (!SOURCE_DIR.exists()) {
@@ -159,7 +157,7 @@ public class MainPlayerActivity extends Activity {
                 else tvStatusMessage.setText("Directory is Ok");
             }
             // Download PLAYLIST_URL as SOURCE_DIR.getAbsolutePath() + "/" + PLAYLIST_NAME
-            fetchTrack(PLAYLIST_URL, /*SOURCE_DIR.getAbsolutePath() + "/" +*/PLAYLIST_NAME);
+            fetchFile(PLAYLIST_URL, /*SOURCE_DIR.getAbsolutePath() + "/" +*/PLAYLIST_NAME);
             // TODO: File download queue (add)
             // rebuildTrackList(SOURCE_DIR.getAbsolutePath() + "/UMPWeb.list");
         } else {
@@ -224,11 +222,11 @@ public class MainPlayerActivity extends Activity {
         }
     }
 
-    public void fetchTrack(String urlAddress, String fileName) {
-        fetchTrack(urlAddress, fileName, -1);
+    public void fetchFile(String urlAddress, String fileName) {
+        fetchFile(urlAddress, fileName, -1);
     }
 
-    public void fetchTrack(String urlAddress, String fileName, int trackIndex) {
+    public void fetchFile(String urlAddress, String fileName, int trackIndex) {
         /* TODO: Legacy download method (remove)
         Intent intent = new Intent(this, DownloadService.class);
         intent.putExtra(DownloadService.URL_ADDRESS, urlAddress);
@@ -274,7 +272,7 @@ public class MainPlayerActivity extends Activity {
                 } else {
                     // TODO: Perform Web download (modify, add callbacks)
                     uwtTrack.setLoaded(false);
-                    fetchTrack(uwtTrack.getTrackUrl(), uwtTrack.getTrackName(), i);
+                    fetchFile(uwtTrack.getTrackUrl(), uwtTrack.getTrackName(), i);
                 }
             }
         }

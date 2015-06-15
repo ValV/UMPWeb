@@ -4,6 +4,8 @@
 
     <!-- Include required permissions for UMPWeb to run -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_ALL_DOWNLOADS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
@@ -20,6 +22,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Uncomment to use with legacy download method -->
         <!-- service android:name=".DownloadService"/ -->
     </application>
 

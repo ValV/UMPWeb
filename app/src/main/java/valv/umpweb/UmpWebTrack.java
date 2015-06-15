@@ -11,6 +11,7 @@ import android.widget.TextView;
  * Created by ValV on 6/13/15.
  */
 public class UmpWebTrack extends LinearLayout {
+
     private String trackUrl = "";
     private String trackName = "";
     private boolean mp3TagSet = false;

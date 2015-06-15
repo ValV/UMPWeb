@@ -13,9 +13,11 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
 
+import javax.net.ssl.HttpsURLConnection;
+
 /**
  * Created by ValV on 6/15/15.
- * TODO: Legacy download method (remove)
+ * TODO: Legacy download method (remove or replace DownloadManager)
  */
 public class DownloadService extends IntentService {
 
@@ -38,6 +40,7 @@ public class DownloadService extends IntentService {
         try {
             // Get URL, open connection and connect
             URL urlUmpFile = new URL(strRemoteFile);
+            // TODO: Try with HttpsURLConnection
             URLConnection ucUmpConnection = urlUmpFile.openConnection();
             ucUmpConnection.connect();
             // Get total file length
